@@ -21,6 +21,7 @@ Google Sheets schedule table (Tab 3, worksheet index 2):
 
 Qualtrics check-in link (placeholder — replace with real survey link):
   https://umich.qualtrics.com/jfe/form/SV_PLACEHOLDER?PID={pid}
+  https://umich.qualtrics.com/jfe/form/SV_6fdkDVK2RStzCEm?PID={pid}
 """
 
 import os
@@ -47,7 +48,7 @@ GOOGLE_SHEET_KEY    = os.environ["GOOGLE_SHEET_KEY"]
 GOOGLE_CREDS_JSON   = os.environ["GOOGLE_CREDS_JSON"]   # JSON string of service account
 
 # Qualtrics check-in placeholder link
-CHECKIN_URL_TEMPLATE = "https://umich.qualtrics.com/jfe/form/SV_PLACEHOLDER?PID={pid}"
+CHECKIN_URL_TEMPLATE = "https://umich.qualtrics.com/jfe/form/SV_6fdkDVK2RStzCEm?PID={pid}"
 
 # Column indices in the schedule tab (0-based)
 COL_PID       = 0
