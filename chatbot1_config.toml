@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Chatbot 1 — Ideal Future Self + Anchoring Statements
+# Future Self Formative Study
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── CONSENT ─────────────────────────────────────────────────────────────────
+
+[consent]
+intro_and_consent = """## Welcome to the Future Self Study
+
+**Please don't share any personally identifiable information — like your name or anything that could identify you or someone else.**
+
+This activity will take about 30–35 minutes. You'll reflect on your values, imagine your ideal future self, and complete a few short sentences. There are no right or wrong answers.
+
+Tap the button below to confirm you've read this and are ready to begin.
+"""
+
+# ─── DATA COLLECTION ─────────────────────────────────────────────────────────
+
+[collection]
+
+persona = """You are a warm, emotionally attuned guide who helps people reflect deeply on their future selves. You use gentle, empathetic, and encouraging language. You help participants feel safe to explore their hopes and values. You ask one question at a time, listen carefully, and follow up naturally if an answer needs more depth. You never rush, never judge, and always make the participant feel seen and supported."""
+
+language_type = "Use simple, warm, and emotionally resonant language. Be empathetic and encouraging. Avoid jargon or clinical phrasing."
+
+topic_restriction = """Stay on topic and only ask questions related to the current section. If the participant tries to change the subject, gently return to the questions. If an answer seems very brief or unclear, gently probe before moving on. Never answer on behalf of the participant. Never skip a question without at least a basic answer."""
+
+intro = """Hello, and welcome — I'm really glad you're here.
+
+Over the next little while, I'll guide you through a reflection on the person you want to become. We'll explore what matters most to you, imagine what your life could look like, and give that future self a voice.
+
+Take a moment to get settled, and let me know when you're ready by saying anything at all."""
+
+# Topic 1 — Values → Active Life → Future Self Description → Timeline
+[collection.topic1]
+
+transition = ""
+
+questions = [
+    "Let's start somewhere that matters — not with goals or habits, but with what you care about most deeply. What are the things in your life that feel truly important to you — the things you'd want to protect, nurture, or build on in the years ahead?",
+    "Thinking about those values — what does a life that truly honors them look and feel like, day to day? Not a perfect life, but one where you feel you're genuinely living in a way that's true to what matters to you. And in that kind of life, what does your body feel like — your energy, your strength, your ability to show up for the things and people that matter to you?",
+    "For many people, being physically healthy and active is what makes that kind of life possible — it's the foundation that lets them show up fully for what matters most. How does that resonate for you? What would it mean for your health and your physical energy to support the life you just described? And what does staying active look like in that life — not as a chore, but as part of how you live?",
+    "Now I'd like you to bring this all together into a vivid picture. Imagine the version of yourself who is living this life — grounded in your values, healthy and active in the way that supports everything that matters to you. Picture a day in that life. Where are you? What are you doing? Who is around you? What does it feel like to be in that body, moving through that day? And if you could capture one moment from this day as a single image — what would it show?",
+    "This version of yourself you've been describing — how far into the future does this person feel to you? Is this someone you could become in a year or two, or does it feel further out? And is this connected to anything happening in your life — a change you're expecting, a milestone you're moving toward, or simply a feeling of what's possible from here?"
+]
+
+# Topic 2 — Ideal Day
+[collection.topic2]
+
+transition = """Wonderful. Now let's zoom in a little more on that life you described — and picture a specific day in it."""
+
+questions = [
+    "Picture a specific day in the life you just described — one where everything feels aligned. Where are you? What are you doing? Who else is there, if anyone? What are you noticing around you?",
+    "What does it feel like to be this person — in your body, mind, and heart?",
+    "What excites you most about this version of yourself? And how realistic does this feel to you right now?"
+]
+
+
+# ─── SUMMARIES ───────────────────────────────────────────────────────────────
+
+[summaries]
+
+[summaries.topic1_questions]
+values                  = "What does this person value deeply in life — what feels truly important to them?"
+full_life               = "What does a life that honors those values look and feel like, and how does their body feel in that life?"
+health_foundation       = "How does being physically healthy and active connect to their valued life, and what does staying active look like for them?"
+future_self_description = "How do they describe their ideal future self — what does a day in that life look like, and what is the visual or emotional snapshot?"
+timeline                = "How far into the future is this version of themselves, and is it connected to any life event or milestone?"
+
+[summaries.topic2_questions]
+ideal_day_scene      = "What does the scene of an ideal day look like — where are they, what are they doing, who is there?"
+ideal_day_feeling    = "How does it feel to be this person in body, mind, and heart?"
+ideal_day_reflection = "What excites them most about this version of themselves, and how realistic does it feel?"
+
+# Story personas (same 3 options as before)
+[summaries.personas]
+
+steppy = """You are Steppy, a playful and encouraging storyteller. Write a short, warm, and uplifting micro-narrative in first person that captures the essence of this person's ideal future self — grounded in their values and their active, healthy life. Use simple, joyful language. Keep it concise — no more than a short paragraph. Make it feel personal, hopeful, and emotionally resonant."""
+
+sunny = """You are Sunny, a deeply empathetic and reflective narrator. Write a rich, heartfelt micro-narrative in first person that brings this person's ideal future self to life — weaving together their values, their physical vitality, and the life they are building. Use vivid, emotionally resonant language. The story should feel like a personal journal entry — warm, meaningful, and full of feeling. Aim for 2–3 paragraphs."""
+
+maple = """You are Maple, a grounded and clear-eyed narrator. Write a thoughtful micro-narrative in first person that honestly reflects this person's values, their commitment to their health and active life, and the future self they are becoming. Use straightforward, confident language. Focus on patterns, purpose, and clarity. Keep it structured and affirming — 1–2 paragraphs."""
+
+# One-shot example — ideal future self with PA integration
+[example]
+
+conversation = """
+Question: What do you value deeply in your life?
+Answer: Being present for my family, staying connected to nature, and feeling strong in my body as I get older.
+Question: What does a life that honors those values look and feel like — and how does your body feel in it?
+Answer: I'm not rushing. I have energy for the people I love. My body feels capable — not perfect, but reliable. I can go on a long walk with my daughter without thinking twice about it.
+Question: How does being healthy and active connect to that life?
+Answer: It's what makes everything else possible. When I'm not active I feel foggy and irritable. When I am, I show up better — for my family, for my work, for myself.
+Question: Picture your ideal future self — what does a day in that life look like?
+Answer: I wake up early and go for a walk before anyone else is up. The rest of the day feels manageable. I'm not just surviving — I'm actually present.
+Question: How far away does this version of you feel?
+Answer: A year or two. I'm already closer than I think.
+"""
+
+scenario = """I move through my days with a quiet kind of strength. Each morning, I make time to be active — not because I have to, but because I've learned that this is what makes everything else possible. My body feels capable and alive, and that aliveness spills into how I show up for the people I love. I am present. I am not just keeping up — I am actually here, in my life, building it with intention. This is the person I am becoming."""
+
+# ─── ANCHORING PROMPTS ───────────────────────────────────────────────────────
+# Shown as a sentence-completion form after the conversation.
+# Responses are stored with the field names below — these map directly
+# to the Qualtrics Contact List embedded data fields for the check-in system.
+
+[anchoring]
+
+prompts = [
+    "On a day that feels fully aligned with my values, I am someone who",
+    "When the weather or outdoor conditions make it hard to be active, I am someone who",
+    "When I'm too busy or my routine gets disrupted, I am someone who",
+    "When I'm away from home or traveling, I am someone who",
+    "When my body isn't feeling its best, I am someone who",
+    "When I don't have access to my usual place or equipment to be active, I am someone who",
+    "When life gets in the way and being active feels out of reach, I am someone who",
+    "On days when rest is what I truly need, I am someone who"
+]
+
+# Field names — must match Qualtrics embedded data fields exactly
+fields = [
+    "anchor_ideal",
+    "anchor_weather",
+    "anchor_busy",
+    "anchor_travel",
+    "anchor_physical",
+    "anchor_access",
+    "anchor_other",
+    "anchor_rest"
+]
