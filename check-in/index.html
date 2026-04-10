@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Future Self · Morning Check-In</title>
+<style>
+  /* ── RESET & BASE ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #FAF7F2;
+    --surface:     #FFFFFF;
+    --surface-warm:#FDF4EC;
+    --accent:      #C8775A;
+    --accent-soft: #F0E0D6;
+    --sage:        #7A9E87;
+    --sage-soft:   #E4EFE7;
+    --text-primary:#2C2C2A;
+    --text-secondary:#6B6860;
+    --text-light:  #9E9B94;
+    --border:      #E8E2DA;
+    --shadow:      0 2px 16px rgba(0,0,0,0.07);
+    --radius-lg:   16px;
+    --radius-md:   12px;
+    --radius-sm:   8px;
+    --max-w:       480px;
+    --font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: var(--font);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── LAYOUT ───────────────────────────────────────────────── */
+  #app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 0 40px;
+  }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    max-width: var(--max-w);
+    padding: 0 20px;
+    animation: fadeIn 0.35s ease;
+  }
+  .screen.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── HEADER BAR ───────────────────────────────────────────── */
+  .top-bar {
+    width: 100%;
+    max-width: var(--max-w);
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .study-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-light);
+  }
+
+  /* ── PROGRESS DOTS ────────────────────────────────────────── */
+  .progress-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.3s, transform 0.3s;
+  }
+  .dot.active { background: var(--accent); transform: scale(1.3); }
+  .dot.done   { background: var(--sage); }
+
+  /* ── CARDS ────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+
+  .card-warm {
+    background: var(--surface-warm);
+    border-radius: var(--radius-lg);
+    padding: 28px 24px;
+    margin-bottom: 16px;
+  }
+
+  /* ── TYPOGRAPHY ───────────────────────────────────────────── */
+  .greeting {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+  }
+
+  .subtext {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-light);
+    margin-bottom: 10px;
+  }
+
+  .reflect-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sage);
+    margin-bottom: 14px;
+    letter-spacing: 0.02em;
+  }
+
+  .narrative-text {
+    font-size: 17px;
+    line-height: 1.75;
+    color: var(--text-primary);
+    font-style: italic;
+  }
+
+  .anchor-card {
+    background: var(--sage-soft);
+    border-left: 3px solid var(--sage);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+  }
+
+  .anchor-text {
+    font-size: 16px;
+    line-height: 1.65;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .encouragement {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    line-height: 1.4;
+    padding: 8px 0;
+  }
+
+  .encouragement-sub {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* ── IMAGE ────────────────────────────────────────────────── */
+  .checkin-image {
+    width: 100%;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    max-height: 260px;
+    display: block;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    background: var(--border);
+  }
+
+  /* ── BUTTONS ──────────────────────────────────────────────── */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px 20px;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #FFFFFF;
+    box-shadow: 0 2px 12px rgba(200, 119, 90, 0.35);
+    margin-bottom: 12px;
+  }
+  .btn-primary:hover { background: #B5664A; }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text-primary);
+    border: 1.5px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  .btn-sage {
+    background: var(--sage);
+    color: #FFFFFF;
+    box-shadow: 0 2px 12px rgba(122, 158, 135, 0.3);
+    margin-bottom: 12px;
+  }
+  .btn-sage:hover { background: #6A8E76; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0;
+    font-size: 15px;
+  }
+
+  /* ── BRANCH CHOICE BUTTONS ────────────────────────────────── */
+  .branch-btn {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+    padding: 18px 20px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    cursor: pointer;
+    margin-bottom: 12px;
+    text-align: left;
+    font-family: var(--font);
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .branch-btn:active { transform: scale(0.98); }
+  .branch-btn:hover  { border-color: var(--accent); background: var(--surface-warm); }
+
+  .branch-icon {
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .branch-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .branch-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  /* ── BARRIER CHIPS ────────────────────────────────────────── */
+  .barrier-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .barrier-chip {
+    padding: 14px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.3;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .barrier-chip:active     { transform: scale(0.97); }
+  .barrier-chip:hover      { border-color: var(--accent); background: var(--surface-warm); }
+  .barrier-chip.selected   { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  .barrier-chip .chip-icon { font-size: 20px; display: block; margin-bottom: 5px; }
+
+  /* ── DIARY / FORM ─────────────────────────────────────────── */
+  .diary-section { margin-bottom: 24px; }
+
+  .diary-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    line-height: 1.4;
+    display: block;
+  }
+
+  .scale-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .scale-ends {
+    font-size: 12px;
+    color: var(--text-light);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .scale-options {
+    display: flex;
+    flex: 1;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .scale-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: var(--font);
+    transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scale-btn:active   { transform: scale(0.93); }
+  .scale-btn.selected { border-color: var(--accent); background: var(--accent); color: #FFF; }
+
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 14px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-family: var(--font);
+    color: var(--text-primary);
+    background: var(--surface);
+    resize: none;
+    outline: none;
+    line-height: 1.6;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+  textarea:focus { border-color: var(--sage); }
+  textarea::placeholder { color: var(--text-light); }
+
+  /* ── LOADING / ERROR ──────────────────────────────────────── */
+  #loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 20px;
+    padding: 40px 20px;
+  }
+
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 15px;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  #error-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 16px;
+    padding: 40px 20px;
+    text-align: center;
+  }
+  .error-icon  { font-size: 40px; }
+  .error-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .error-msg   { font-size: 15px; color: var(--text-secondary); line-height: 1.6; max-width: 320px; }
+
+  /* ── THANK YOU ────────────────────────────────────────────── */
+  .thankyou-icon  { font-size: 48px; text-align: center; margin-bottom: 12px; }
+  .thankyou-title { font-size: 24px; font-weight: 700; text-align: center; color: var(--text-primary); margin-bottom: 10px; }
+  .thankyou-sub   { font-size: 16px; color: var(--text-secondary); text-align: center; line-height: 1.6; }
+
+  /* ── DIVIDER ──────────────────────────────────────────────── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .mt-16 { margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p class="loading-text">Loading your check-in…</p>
+</div>
+
+<!-- ERROR -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <p class="error-title">Something went wrong</p>
+  <p class="error-msg" id="error-msg-text">We couldn't load your check-in. Please contact the study team.</p>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+
+  <!-- TOP BAR -->
+  <div class="top-bar" id="top-bar">
+    <span class="study-label">Future Self Study</span>
+    <div class="progress-dots" id="progress-dots"></div>
+  </div>
+
+  <!-- SCREEN 1: GREETING -->
+  <div class="screen" id="screen-greeting">
+    <div class="card mt-16">
+      <p class="greeting">Good morning. 🌅</p>
+      <p class="subtext">Let's take a moment to prepare for the day ahead.</p>
+    </div>
+    <button class="btn btn-primary" onclick="goTo('screen-branch')">I'm ready</button>
+  </div>
+
+  <!-- SCREEN 2: BRANCH SELECTION -->
+  <div class="screen" id="screen-branch">
+    <div class="card mt-16">
+      <p class="label">Today's check-in</p>
+      <p class="subtext" style="font-size:18px; font-weight:600; color:var(--text-primary); margin-bottom:4px;">What's your day looking like for being active?</p>
+    </div>
+    <button class="branch-btn" onclick="selectBranch('A')">
+      <span class="branch-icon">☀️</span>
+      <span>
+        <span class="branch-label">It's a good day to be active</span>
+        <span class="branch-sub">I'm feeling ready and able to move today.</span>
+      </span>
+    </button>
+    <button class="branch-btn" onclick="selectBranch('B')">
+      <span class="branch-icon">🌤</span>
+      <span>
+        <span class="branch-label">I plan to be active, but there may be barriers</span>
+        <span class="branch-sub">I want to be active, but something may get in the way.</span>
+      </span>
+    </button>
+    <button class="branch-btn" onclick="selectBranch('C')">
+      <span class="branch-icon">🌙</span>
+      <span>
+        <span class="branch-label">Today is a rest day</span>
+        <span class="branch-sub">I'm not planning to be active today, and that's okay.</span>
+      </span>
+    </button>
+  </div>
+
+  <!-- BRANCH B: BARRIER SELECTION -->
+  <div class="screen" id="screen-barrier">
+    <div class="card mt-16">
+      <p class="label">What's getting in the way?</p>
+      <p class="subtext">Select the barrier that feels most relevant today.</p>
+    </div>
+    <div class="barrier-grid">
+      <button class="barrier-chip" onclick="selectBarrier('weather', this)">
+        <span class="chip-icon">🌧</span>Weather or outdoor conditions
+      </button>
+      <button class="barrier-chip" onclick="selectBarrier('busy', this)">
+        <span class="chip-icon">📅</span>Too busy or schedule disrupted
+      </button>
+      <button class="barrier-chip" onclick="selectBarrier('travel', this)">
+        <span class="chip-icon">✈️</span>Away from home or traveling
+      </button>
+      <button class="barrier-chip" onclick="selectBarrier('physical', this)">
+        <span class="chip-icon">🩹</span>Not feeling my best physically
+      </button>
+      <button class="barrier-chip" onclick="selectBarrier('access', this)">
+        <span class="chip-icon">🚫</span>No access to my usual place or equipment
+      </button>
+      <button class="barrier-chip" onclick="selectBarrier('other', this)">
+        <span class="chip-icon">💭</span>Something else
+      </button>
+    </div>
+    <button class="btn btn-primary" id="btn-barrier-continue" onclick="continueFromBarrier()" style="opacity:0.4; pointer-events:none;">Continue</button>
+    <button class="btn btn-ghost" onclick="goTo('screen-branch')">← Back</button>
+  </div>
+
+  <!-- NARRATIVE SCREEN (all branches) -->
+  <div class="screen" id="screen-narrative">
+    <div class="card mt-16">
+      <p class="reflect-label">✦ Take a moment to reflect on who you want to become:</p>
+      <p class="narrative-text" id="narrative-text"></p>
+    </div>
+    <button class="btn btn-primary" onclick="narrativeContinue()">Continue</button>
+  </div>
+
+  <!-- ANCHOR + IMAGE SCREEN -->
+  <div class="screen" id="screen-anchor">
+    <div class="mt-16">
+      <img class="checkin-image" id="anchor-image" src="" alt="Your future self" onerror="this.style.display='none'">
+      <div class="anchor-card">
+        <p class="anchor-text" id="anchor-text"></p>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="goToEncouragement()">Continue</button>
+  </div>
+
+  <!-- ENCOURAGEMENT SCREEN -->
+  <div class="screen" id="screen-encouragement">
+    <div class="card mt-16" style="text-align:center; padding: 40px 24px;">
+      <p class="encouragement" id="encouragement-text"></p>
+      <p class="encouragement-sub" id="encouragement-sub"></p>
+    </div>
+    <button class="btn btn-primary" id="btn-encouragement-continue" onclick="encouragementContinue()">Continue</button>
+  </div>
+
+  <!-- DIARY SCREEN (Branch A + B only) -->
+  <div class="screen" id="screen-diary">
+    <div class="card mt-16">
+      <p class="label">A few quick questions</p>
+
+      <div class="diary-section">
+        <label class="diary-label">How useful was today's check-in for you?</label>
+        <div class="scale-row">
+          <span class="scale-ends">Not at<br>all useful</span>
+          <div class="scale-options" id="scale-useful">
+            <button class="scale-btn" onclick="selectScale('useful', 1, this)">1</button>
+            <button class="scale-btn" onclick="selectScale('useful', 2, this)">2</button>
+            <button class="scale-btn" onclick="selectScale('useful', 3, this)">3</button>
+            <button class="scale-btn" onclick="selectScale('useful', 4, this)">4</button>
+            <button class="scale-btn" onclick="selectScale('useful', 5, this)">5</button>
+          </div>
+          <span class="scale-ends">Very<br>useful</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="diary-section">
+        <label class="diary-label">How burdensome did today's check-in feel?</label>
+        <div class="scale-row">
+          <span class="scale-ends">Not at all<br>burdensome</span>
+          <div class="scale-options" id="scale-burden">
+            <button class="scale-btn" onclick="selectScale('burden', 1, this)">1</button>
+            <button class="scale-btn" onclick="selectScale('burden', 2, this)">2</button>
+            <button class="scale-btn" onclick="selectScale('burden', 3, this)">3</button>
+            <button class="scale-btn" onclick="selectScale('burden', 4, this)">4</button>
+            <button class="scale-btn" onclick="selectScale('burden', 5, this)">5</button>
+          </div>
+          <span class="scale-ends">Very<br>burdensome</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="diary-section" style="margin-bottom:0;">
+        <label class="diary-label">Anything on your mind? <span style="font-weight:400; color:var(--text-light);">(optional)</span></label>
+        <textarea id="open-text" placeholder="Use this space to reflect on yesterday, think through today, or share any feedback…"></textarea>
+      </div>
+    </div>
+
+    <button class="btn btn-sage" onclick="submitCheckin(false)">Submit check-in</button>
+  </div>
+
+  <!-- THANK YOU -->
+  <div class="screen" id="screen-thankyou">
+    <div class="card mt-16" style="text-align:center; padding: 48px 24px;">
+      <p class="thankyou-icon">🌿</p>
+      <p class="thankyou-title">You're done for today.</p>
+      <p class="thankyou-sub">Thank you for checking in. Every small step counts — we'll be in touch.</p>
+    </div>
+  </div>
+
+</div><!-- end #app -->
+
+<script>
+// ── CONFIGURATION ─────────────────────────────────────────────
+// Paste your Google Apps Script deployment URL here
+// It looks like: https://script.google.com/macros/s/ABC123.../exec
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzwyt3zMYWhlJO0zHv1rhLyQGG4UWnnXV6FANklIHUjNnaquK9gYuB45xm5Nxjh5Php/exec";
+
+// ── STATE ─────────────────────────────────────────────────────
+var state = {
+  pid:         null,
+  occasion:    null,
+  branch:      null,
+  barrier:     null,
+  data:        null,
+  diaryUseful: null,
+  diaryBurden: null,
+  totalSteps:  0,
+  currentStep: 0
+};
+
+// ── INIT ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  var params   = new URLSearchParams(window.location.search);
+  state.pid    = params.get('PID') || params.get('pid');
+  state.occasion = params.get('occasion') || params.get('o') || '1';
+
+  if (!state.pid) {
+    showError("No participant ID found in this link. Please contact the study team.");
+    return;
+  }
+
+  var url = APPS_SCRIPT_URL + "?action=getContent&PID=" + encodeURIComponent(state.pid);
+
+  fetch(url, { redirect: 'follow' })
+    .then(function(res) { return res.json(); })
+    .then(function(json) {
+      if (json.error) throw new Error(json.error);
+      state.data = json.data;
+      document.getElementById('narrative-text').textContent = state.data.narrative_ideal || "";
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      initProgress(6);
+      goTo('screen-greeting');
+    })
+    .catch(function(err) {
+      showError("We couldn't load your personalized content. Please contact the study team. Details: " + err.message);
+    });
+});
+
+// ── PROGRESS ──────────────────────────────────────────────────
+function initProgress(steps) {
+  state.totalSteps  = steps;
+  state.currentStep = 0;
+  var dotsEl = document.getElementById('progress-dots');
+  dotsEl.innerHTML = '';
+  for (var i = 0; i < steps; i++) {
+    var d = document.createElement('div');
+    d.className = 'dot';
+    d.id = 'dot-' + i;
+    dotsEl.appendChild(d);
+  }
+  var first = document.getElementById('dot-0');
+  if (first) first.className = 'dot active';
+}
+
+function advanceProgress() {
+  var prev = document.getElementById('dot-' + state.currentStep);
+  if (prev) prev.className = 'dot done';
+  state.currentStep++;
+  var curr = document.getElementById('dot-' + state.currentStep);
+  if (curr) curr.className = 'dot active';
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(screenId).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  advanceProgress();
+}
+
+// ── BRANCH SELECTION ──────────────────────────────────────────
+function selectBranch(branch) {
+  state.branch = branch;
+  if (branch === 'A')      initProgress(6);
+  else if (branch === 'B') initProgress(7);
+  else                     initProgress(5);
+
+  if (branch === 'B') {
+    goTo('screen-barrier');
+  } else {
+    goTo('screen-narrative');
+  }
+}
+
+// ── BARRIER SELECTION ─────────────────────────────────────────
+var selectedBarrierEl = null;
+
+function selectBarrier(barrier, el) {
+  state.barrier = barrier;
+  if (selectedBarrierEl) selectedBarrierEl.classList.remove('selected');
+  el.classList.add('selected');
+  selectedBarrierEl = el;
+  var btn = document.getElementById('btn-barrier-continue');
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = 'auto';
+}
+
+function continueFromBarrier() {
+  if (!state.barrier) return;
+  goTo('screen-narrative');
+}
+
+// ── NARRATIVE CONTINUE ────────────────────────────────────────
+function narrativeContinue() {
+  var d = state.data;
+  var anchorText = "";
+  var imageUrl   = "";
+
+  if (state.branch === 'A') {
+    anchorText = d.anchor_ideal  || "";
+    imageUrl   = d.image_ideal   || "";
+  } else if (state.branch === 'B') {
+    var barrierMap = {
+      weather:  { anchor: d.anchor_weather,  image: d.image_weather  },
+      busy:     { anchor: d.anchor_busy,     image: d.image_busy     },
+      travel:   { anchor: d.anchor_travel,   image: d.image_travel   },
+      physical: { anchor: d.anchor_physical, image: d.image_physical },
+      access:   { anchor: d.anchor_access,   image: d.image_access   },
+      other:    { anchor: d.anchor_other,    image: d.image_other    }
+    };
+    var mapped = barrierMap[state.barrier] || {};
+    anchorText = mapped.anchor || d.anchor_other || "";
+    imageUrl   = mapped.image  || d.image_other  || "";
+  } else {
+    anchorText = d.anchor_rest || "";
+    imageUrl   = d.image_rest  || "";
+  }
+
+  document.getElementById('anchor-text').textContent = anchorText;
+  var img = document.getElementById('anchor-image');
+  if (imageUrl) {
+    img.src = imageUrl;
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+
+  goTo('screen-anchor');
+}
+
+// ── ANCHOR → ENCOURAGEMENT ────────────────────────────────────
+function goToEncouragement() {
+  var msgEl = document.getElementById('encouragement-text');
+  var subEl = document.getElementById('encouragement-sub');
+  var btnEl = document.getElementById('btn-encouragement-continue');
+
+  if (state.branch === 'A') {
+    msgEl.textContent = "Have a great active day! 🌟";
+    subEl.textContent = "You've got this. Keep going.";
+    btnEl.textContent = "Continue";
+  } else if (state.branch === 'B') {
+    msgEl.textContent = "Don't give up — you've got this. 💪";
+    subEl.textContent = "Even on harder days, showing up matters.";
+    btnEl.textContent = "Continue";
+  } else {
+    msgEl.textContent = "Rest is part of the journey. 🌿";
+    subEl.textContent = "We'll check back with you soon. Have a good day.";
+    btnEl.textContent = "I'm done for today";
+  }
+
+  goTo('screen-encouragement');
+}
+
+// ── ENCOURAGEMENT → NEXT ──────────────────────────────────────
+function encouragementContinue() {
+  if (state.branch === 'C') {
+    // Branch C: no diary — submit and show thank you
+    submitCheckin(true);
+  } else {
+    goTo('screen-diary');
+  }
+}
+
+// ── DIARY SCALES ──────────────────────────────────────────────
+function selectScale(type, value, el) {
+  var container = document.getElementById('scale-' + type);
+  container.querySelectorAll('.scale-btn').forEach(function(b) { b.classList.remove('selected'); });
+  el.classList.add('selected');
+  if (type === 'useful') state.diaryUseful = value;
+  if (type === 'burden') state.diaryBurden = value;
+}
+
+// ── SUBMIT ────────────────────────────────────────────────────
+function submitCheckin(isBranchC) {
+  var openText = document.getElementById('open-text');
+  var payload = {
+    action:       "logResponse",
+    PID:          state.pid,
+    occasion:     state.occasion,
+    branch:       state.branch,
+    barrier:      state.barrier      || "",
+    diary_useful: isBranchC ? ""     : (state.diaryUseful || ""),
+    diary_burden: isBranchC ? ""     : (state.diaryBurden || ""),
+    open_text:    isBranchC ? ""     : (openText ? openText.value : "")
+  };
+
+  // Send the log — use no-cors so browser doesn't block the request
+  // The response won't be readable but the data will still be saved
+  fetch(APPS_SCRIPT_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload),
+    mode:    'no-cors'
+  }).catch(function(err) {
+    console.warn("Logging error (non-critical):", err);
+  });
+
+  // Go to thank you immediately — don't wait for the response
+  goTo('screen-thankyou');
+  document.getElementById('top-bar').style.display = 'none';
+}
+
+// ── ERROR ─────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('loading-screen').style.display = 'none';
+  var errEl = document.getElementById('error-screen');
+  errEl.style.display = 'flex';
+  document.getElementById('error-msg-text').textContent = msg;
+}
+</script>
+</body>
+</html>
