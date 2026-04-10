@@ -177,15 +177,19 @@ def generate_stories():
             "one_shot":   cfg.one_shot,
             "end_prompt": (
                 "Create a feared future self micro-narrative based on the information above. "
+                "The narrative should NOT be fear-driven or alarming. Instead, frame it as a story "
+                "of quiet drift — a version of this person who has gradually moved away from the things "
+                "that matter most to them. "
                 "The narrative MUST do all of the following:\n"
-                "1. Ground the story in 1–2 of the values this person named as most important to them — "
-                "show specifically how this feared self has drifted away from those values.\n"
-                "2. Show explicitly what being physically inactive or unhealthy COSTS this person — "
-                "not as an abstract health warning, but as concrete losses in their ability to live "
-                "the life and be the person their values call them to be.\n"
-                "3. Paint a vivid, grounded scene of a day in this feared future — "
-                "what it feels like in their body, how it shows up in the life around them.\n"
-                "Keep the tone honest and meaningful without being dramatic, harsh, or alarmist. "
+                "1. Show how this person has drifted from the specific values they named — "
+                "not through dramatic failure, but through small, gradual disconnection from what gives their life meaning.\n"
+                "2. Make it clear that not living a healthy and active lifestyle is central to this drift — "
+                "physical inactivity is not a side effect but a visible, defining feature of this version of themselves. "
+                "Show concretely how the absence of movement and physical vitality shapes their days, "
+                "limits what they can do, and distances them from the life they wanted.\n"
+                "3. Paint a grounded, honest scene of a day in this drifted life — "
+                "what it feels like to be this person moving through their day, physically and emotionally.\n"
+                "Keep the tone reflective and honest, not dramatic or harsh. "
                 "The tone, length, and voice should match the persona you have been given."
             )
         } | all_answers)
