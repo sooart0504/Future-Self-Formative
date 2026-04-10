@@ -44,18 +44,6 @@ questions = [
     "This version of yourself you've been describing — how far into the future does this person feel to you? Is this someone you could become in a year or two, or does it feel further out? And is this connected to anything happening in your life — a change you're expecting, a milestone you're moving toward, or simply a feeling of what's possible from here?"
 ]
 
-# Topic 2 — Ideal Day
-[collection.topic2]
-
-transition = """Wonderful. Now let's zoom in a little more on that life you described — and picture a specific day in it."""
-
-questions = [
-    "Picture a specific day in the life you just described — one where everything feels aligned. Where are you? What are you doing? Who else is there, if anyone? What are you noticing around you?",
-    "What does it feel like to be this person — in your body, mind, and heart?",
-    "What excites you most about this version of yourself? And how realistic does this feel to you right now?"
-]
-
-
 # ─── SUMMARIES ───────────────────────────────────────────────────────────────
 
 [summaries]
@@ -66,11 +54,6 @@ full_life               = "What does a life that honors those values look and fe
 health_foundation       = "How does being physically healthy and active connect to their valued life, and what does staying active look like for them?"
 future_self_description = "How do they describe their ideal future self — what does a day in that life look like, and what is the visual or emotional snapshot?"
 timeline                = "How far into the future is this version of themselves, and is it connected to any life event or milestone?"
-
-[summaries.topic2_questions]
-ideal_day_scene      = "What does the scene of an ideal day look like — where are they, what are they doing, who is there?"
-ideal_day_feeling    = "How does it feel to be this person in body, mind, and heart?"
-ideal_day_reflection = "What excites them most about this version of themselves, and how realistic does it feel?"
 
 # Story personas (same 3 options as before)
 [summaries.personas]

@@ -175,7 +175,19 @@ def generate_stories():
         result = chain.invoke({
             "persona":    persona,
             "one_shot":   cfg.one_shot,
-            "end_prompt": "Create a feared future self micro-narrative that feels honest, grounded, and meaningful — not dramatic or harsh."
+            "end_prompt": (
+                "Create a feared future self micro-narrative based on the information above. "
+                "The narrative MUST do all of the following:\n"
+                "1. Ground the story in 1–2 of the values this person named as most important to them — "
+                "show specifically how this feared self has drifted away from those values.\n"
+                "2. Show explicitly what being physically inactive or unhealthy COSTS this person — "
+                "not as an abstract health warning, but as concrete losses in their ability to live "
+                "the life and be the person their values call them to be.\n"
+                "3. Paint a vivid, grounded scene of a day in this feared future — "
+                "what it feels like in their body, how it shows up in the life around them.\n"
+                "Keep the tone honest and meaningful without being dramatic, harsh, or alarmist. "
+                "The tone, length, and voice should match the persona you have been given."
+            )
         } | all_answers)
         stories.append(result.get("output_scenario", ""))
         progress.progress(int((i + 1) / 3 * 100), "Generating your stories...")

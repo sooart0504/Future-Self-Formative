@@ -76,17 +76,12 @@ class LLMConfig:
                 self.topic2_questions, is_first_topic=False)
 
         # ── Story generation prompt ───────────────────────────────────────────
-        # Chatbot 1: story from topic1 + topic2 combined
-        # Chatbot 2: story from topic1 only
-        if self.has_topic2:
-            self.story_prompt_template = self._build_combined_story_prompt(
-                config["summaries"]["topic1_questions"],
-                config["summaries"]["topic2_questions"]
-            )
-        else:
-            self.story_prompt_template = self._build_story_prompt(
-                config["summaries"]["topic1_questions"]
-            )
+        # Both chatbots now use single-topic story prompt.
+        # Chatbot 1: topic1 only (Ideal Day section removed from design).
+        # Chatbot 2: topic1 only (feared future self).
+        self.story_prompt_template = self._build_story_prompt(
+            config["summaries"]["topic1_questions"]
+        )
 
         # ── Revision prompt ───────────────────────────────────────────────────
         self.adaptation_prompt_template = self._build_adaptation_prompt()

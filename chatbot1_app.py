@@ -3,7 +3,7 @@ chatbot1_app.py
 Future Self Formative Study — Chatbot 1: Ideal Future Self + Anchoring Statements
 
 State machine:
-  start → topic1 → topic2 → anchoring → gen_stories → pick_persona
+  start → anchoring → gen_stories → pick_persona
         → rate_story → [revise_story] → complete
 
 URL params:
@@ -15,7 +15,6 @@ import sys
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
-from functools import partial
 
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 from langchain_classic.memory import ConversationBufferMemory
@@ -53,9 +52,7 @@ defaults = {
     "agentState":          "start",
     "consent":             False,
     "created_time":        datetime.now(),
-    "current_topic":       1,
     "answers_t1":          {},
-    "answers_t2":          {},
     "anchoring_responses": {},   # {field_name: response_text}
     "topic1_stories":      [],
     "locked_persona":      None,
@@ -71,11 +68,8 @@ for k, v in defaults.items():
 
 
 # ── Per-topic message histories ───────────────────────────────────────────────
-msgs_t1 = StreamlitChatMessageHistory(key="msgs_topic1")
-msgs_t2 = StreamlitChatMessageHistory(key="msgs_topic2")
-
+msgs_t1   = StreamlitChatMessageHistory(key="msgs_topic1")
 memory_t1 = ConversationBufferMemory(memory_key="history", chat_memory=msgs_t1)
-memory_t2 = ConversationBufferMemory(memory_key="history", chat_memory=msgs_t2)
 
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────
@@ -91,7 +85,6 @@ def save_to_sheet():
     sheet  = client.open_by_key(SHEET_KEY).get_worksheet(0)
 
     t1      = st.session_state.get("answers_t1", {})
-    t2      = st.session_state.get("answers_t2", {})
     anchors = st.session_state.get("anchoring_responses", {})
 
     row = [
@@ -100,17 +93,12 @@ def save_to_sheet():
         str(datetime.now()),
         str(st.session_state.get("locked_persona_name", "")),
 
-        # Topic 1 extracted answers (6 fields)
+        # Topic 1 extracted answers (5 fields)
         str(t1.get("values", "")),
         str(t1.get("full_life", "")),
         str(t1.get("health_foundation", "")),
         str(t1.get("future_self_description", "")),
         str(t1.get("timeline", "")),
-
-        # Topic 2 extracted answers (3 fields)
-        str(t2.get("ideal_day_scene", "")),
-        str(t2.get("ideal_day_feeling", "")),
-        str(t2.get("ideal_day_reflection", "")),
 
         # Final narrative
         str(st.session_state.get("story_final", "")),
@@ -121,9 +109,8 @@ def save_to_sheet():
         # Revision count
         str(st.session_state.get("revision_count", 0)),
 
-        # Full chat logs
+        # Full chat log (topic 1 only)
         str(msgs_t1.messages),
-        str(msgs_t2.messages),
     ]
     sheet.append_row(row)
 
@@ -181,20 +168,14 @@ def run_topic_conversation(topic_num, msgs, memory, prompt_template, container):
 @traceable
 def generate_stories():
     """
-    Extracts answers from both topics, generates 3 persona stories,
+    Extracts answers from topic 1, generates 3 persona stories,
     stores them in session state, transitions to pick_persona.
     """
     st.session_state["answers_t1"] = extract_answers(
         msgs_t1.messages, cfg.topic1_keys, cfg.topic1_extraction_template)
-    st.session_state["answers_t2"] = extract_answers(
-        msgs_t2.messages, cfg.topic2_keys, cfg.topic2_extraction_template)
 
-    t1_answers = st.session_state["answers_t1"]
-    t2_answers = st.session_state["answers_t2"]
-
-    # Merge both answer sets for the combined story prompt
-    all_answers = {**{k: t1_answers.get(k, "") for k in cfg.topic1_keys},
-                   **{k: t2_answers.get(k, "") for k in cfg.topic2_keys}}
+    t1_answers  = st.session_state["answers_t1"]
+    all_answers = {k: t1_answers.get(k, "") for k in cfg.topic1_keys}
 
     prompt_obj  = PromptTemplate.from_template(cfg.story_prompt_template)
     json_parser = SimpleJsonOutputParser()
@@ -207,7 +188,19 @@ def generate_stories():
         result = chain.invoke({
             "persona":    persona,
             "one_shot":   cfg.one_shot,
-            "end_prompt": "Create a micro-narrative that feels personal, grounded, and emotionally resonant."
+            "end_prompt": (
+                "Create an ideal future self micro-narrative based on the information above. "
+                "The narrative MUST do all of the following:\n"
+                "1. Open by grounding the story in 1–2 of this person's core values, "
+                "using their own words or close paraphrases — make the values feel specific to them, not generic.\n"
+                "2. Show explicitly how being physically active and healthy ENABLES this person to live in "
+                "alignment with those values — not as a separate health goal, but as the physical foundation "
+                "that makes their valued life possible. This connection must be unmistakable.\n"
+                "3. Paint a vivid, specific scene of this person as their future self — active, energized, "
+                "and living the life they described — in a moment that captures how physical vitality and "
+                "personal values are intertwined.\n"
+                "The tone, length, and voice should match the persona you have been given."
+            )
         } | all_answers)
         stories.append(result.get("output_scenario", ""))
         progress.progress(int((i + 1) / 3 * 100), "Generating your stories...")
@@ -427,16 +420,6 @@ def state_agent():
         finished = run_topic_conversation(
             1, msgs_t1, memory_t1,
             cfg.topic1_prompt_template,
-            entry_container
-        )
-        if finished:
-            st.session_state["agentState"] = "topic2"
-            st.rerun()
-
-    elif state == "topic2":
-        finished = run_topic_conversation(
-            2, msgs_t2, memory_t2,
-            cfg.topic2_prompt_template,
             entry_container
         )
         if finished:
