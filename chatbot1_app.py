@@ -31,6 +31,7 @@ from llm_config import LLMConfig
 
 # ── Environment ───────────────────────────────────────────────────────────────
 os.environ["OPENAI_API_KEY"]       = st.secrets["OPENAI_API_KEY"]
+os.environ["OPENAI_API_BASE"] = st.secrets["OPENAI_API_BASE"]
 os.environ["LANGCHAIN_API_KEY"]    = st.secrets["LANGCHAIN_API_KEY"]
 os.environ["LANGCHAIN_PROJECT"]    = st.secrets["LANGCHAIN_PROJECT"]
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -120,7 +121,8 @@ def get_llm(temperature=0.3):
     return ChatOpenAI(
         temperature=temperature,
         model=st.session_state.llm_model,
-        openai_api_key=st.secrets["OPENAI_API_KEY"]
+        openai_api_key=st.secrets["OPENAI_API_KEY"],
+        openai_api_base=st.secrets["OPENAI_API_BASE"]
     )
 
 
