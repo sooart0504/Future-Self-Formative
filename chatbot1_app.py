@@ -377,7 +377,9 @@ def show_anchoring_form():
     st.chat_message("ai").write(
         "You've painted a meaningful picture of who you want to become. "
         "Now let's give that future self a voice.\n\n"
-        "Step into that version of you. As that person, complete each of the following sentences. "
+        "For a moment, imagine you already ARE this future self — not describing them from the outside, "
+        "but actually being them, in their body, living their life. From inside that experience, "
+        "complete each of the following sentences as if you are answering right now, as that person. "
         "There are no right answers — just write what feels true for them."
     )
     st.divider()
