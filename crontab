@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Future Self Formative Study — check-in SMS schedule
+#
+# This is the same schedule the Render cron job used. Read the five fields as:
+#
+#   */30  *     *     *     *
+#   │     │     │     │     └── day of week   (* = every)
+#   │     │     │     └──────── month         (* = every)
+#   │     │     └────────────── day of month  (* = every)
+#   │     └──────────────────── hour          (* = every)
+#   └────────────────────────── minute        (*/30 = every 30 minutes)
+#
+# So: run at :00 and :30 of every hour, every day.
+#
+# Do not shorten this interval. twilio_scheduler.py uses a 25-minute send
+# window (see is_send_window) that is deliberately paired with a 30-minute
+# schedule so each participant's wake time is caught exactly once. Running more
+# often risks sending a participant the same check-in twice.
+# ─────────────────────────────────────────────────────────────────────────────
+
+*/30 * * * * cd /app && python twilio_scheduler.py

@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Fly.io config — Twilio SMS check-in scheduler (replaces the Render cron job)
+# Deploy with:  fly deploy -c fly.scheduler.toml
+# ─────────────────────────────────────────────────────────────────────────────
+
+app            = "fsf-scheduler"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile.scheduler"
+
+# NOTE: there is deliberately no [http_service] section here.
+#
+# This app has no website and nothing to visit in a browser. It is a background
+# worker. Because it exposes no service, Fly keeps it running continuously
+# rather than sleeping it — which is what the cron loop needs.
+
+# ── CRITICAL: exactly one machine ────────────────────────────────────────────
+# Supercronic fires on every machine it runs on. Two machines would mean every
+# participant receives two identical check-in texts. Confirm after deploying:
+#
+#   fly scale show -a fsf-scheduler      # must report count = 1
+#   fly scale count 1 -a fsf-scheduler   # run this if it reports anything else
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "512mb"

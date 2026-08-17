@@ -1,0 +1,42 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Fly.io config — Chatbot 1 (Ideal Future Self + Anchoring Statements)
+# Deploy with:  fly deploy -c fly.chatbot1.toml
+# ─────────────────────────────────────────────────────────────────────────────
+
+app            = "fsf-chatbot1"
+primary_region = "ord"   # Chicago — closest Fly region to Michigan
+
+[build]
+  dockerfile = "Dockerfile.chatbot"
+
+[env]
+  # This is what tells the shared image to run Chatbot 1 rather than Chatbot 2.
+  APP_FILE = "chatbot1_app.py"
+  PORT     = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https   = true
+
+  # IMPORTANT — do not change these three lines.
+  #
+  # Fly can put machines to sleep when idle to save money. For this study that
+  # is the wrong tradeoff: a sleeping machine takes several seconds to wake,
+  # and participants hit this app live during a Zoom session. Keeping one
+  # machine always running costs a few dollars a month and removes that risk.
+  auto_stop_machines   = "off"
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  # Streamlit exposes a built-in health endpoint. Fly uses it to notice if the
+  # app has crashed and to restart it.
+  [[http_service.checks]]
+    interval     = "30s"
+    timeout      = "5s"
+    grace_period = "30s"
+    method       = "GET"
+    path         = "/_stcore/health"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "1gb"   # Streamlit + LangChain need more than the 512mb default

@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Fly.io config — Chatbot 2 (Feared Future Self)
+# Deploy with:  fly deploy -c fly.chatbot2.toml
+#
+# Identical to fly.chatbot1.toml except for the app name and APP_FILE.
+# ─────────────────────────────────────────────────────────────────────────────
+
+app            = "fsf-chatbot2"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile.chatbot"
+
+[env]
+  APP_FILE = "chatbot2_app.py"
+  PORT     = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https   = true
+
+  auto_stop_machines   = "off"
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval     = "30s"
+    timeout      = "5s"
+    grace_period = "30s"
+    method       = "GET"
+    path         = "/_stcore/health"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "1gb"

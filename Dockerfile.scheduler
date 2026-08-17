@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Future Self Formative Study — SMS check-in scheduler
+#
+# This replaces the Render cron job. Render kept the clock outside your code.
+# Fly.io does not offer a 30-minute cron service, so the clock moves inside the
+# container: Supercronic is a small, container-friendly cron runner that holds
+# the same schedule Render held and runs the same script.
+#
+# twilio_scheduler.py is NOT modified.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM --platform=linux/amd64 python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# ── Supercronic ──────────────────────────────────────────────────────────────
+# Pinned to an exact version and verified against its SHA-1 checksum, so the
+# build fails loudly if the downloaded file is ever not the file we expect.
+ENV SUPERCRONIC_VERSION=v0.2.34 \
+    SUPERCRONIC_SHA1SUM=e8631edc1775000d119b70fd40339a7238eece14
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSLO "https://github.com/aptible/supercronic/releases/download/${SUPERCRONIC_VERSION}/supercronic-linux-amd64" \
+ && echo "${SUPERCRONIC_SHA1SUM}  supercronic-linux-amd64" | sha1sum -c - \
+ && chmod +x supercronic-linux-amd64 \
+ && mv supercronic-linux-amd64 /usr/local/bin/supercronic \
+ && apt-get purge -y curl && apt-get autoremove -y
+
+WORKDIR /app
+
+# The scheduler only needs four libraries — not Streamlit or LangChain. A
+# smaller image means faster deploys and less to keep patched.
+COPY requirements-scheduler.txt .
+RUN pip install --no-cache-dir -r requirements-scheduler.txt
+
+COPY twilio_scheduler.py .
+COPY crontab .
+
+# Run the cron loop in the foreground. -passthrough-logs makes the print()
+# statements inside twilio_scheduler.py show up directly in `fly logs`.
+CMD ["supercronic", "-passthrough-logs", "/app/crontab"]

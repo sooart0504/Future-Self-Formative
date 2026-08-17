@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Future Self Formative Study — Chatbot image (Chatbot 1 and Chatbot 2)
+#
+# One image serves BOTH chatbots. Which one runs is decided by the APP_FILE
+# environment variable, set in fly.chatbot1.toml / fly.chatbot2.toml.
+#
+# Platform is pinned to amd64 because that is what Fly.io machines run, and
+# because the Supercronic checksum in Dockerfile.scheduler assumes it. Pinning
+# here keeps builds identical whether they run on Fly's builders or your Mac.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM --platform=linux/amd64 python:3.11-slim
+
+# Python 3.11 is required: llm_config.py uses tomllib, added in 3.11.
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Build tools are needed by some wheels, then removed to keep the image small.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Dependencies are copied and installed before the app code so that editing a
+# prompt in a .toml file does not force a full reinstall on the next deploy.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN chmod +x /app/entrypoint-chatbot.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint-chatbot.sh"]

@@ -1,0 +1,7 @@
+# Dependencies for twilio_scheduler.py only.
+# Deliberately separate from requirements.txt so the scheduler image does not
+# carry Streamlit, LangChain, or OpenAI, none of which it imports.
+twilio>=9.0.0
+gspread>=6.0.0
+google-auth>=2.29.0
+pytz>=2024.1
