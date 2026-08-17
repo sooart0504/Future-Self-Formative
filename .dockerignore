@@ -1,0 +1,24 @@
+# Keep secrets, git history, and unrelated files out of the built images.
+.git
+.gitignore
+.DS_Store
+**/.DS_Store
+.devcontainer
+
+# The check-in webapp is hosted on GitHub Pages, not on Fly. It does not
+# belong in either image.
+check-in/
+
+# Real secrets must never be baked into an image. They arrive at runtime as
+# Fly secrets instead.
+.streamlit/secrets.toml
+secrets.toml
+
+# Documentation
+*.md
+
+# Google Apps Script files run inside Google, not in these containers.
+*.gs
+
+__pycache__/
+*.pyc
