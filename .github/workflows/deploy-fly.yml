@@ -95,7 +95,12 @@ jobs:
 
       - name: Create the three apps if they do not exist yet
         run: |
-          ORG="${{ vars.FLY_ORG || 'personal' }}"
+          # Soo's Fly organization. Confirmed from `flyctl orgs list`:
+          #   NAME                     SLUG                   TYPE
+          #   future-selves (126872)   future-selves-126872   SHARED
+          # Use the SLUG here, never the display name.
+          # A FLY_ORG repository variable, if set, overrides this.
+          ORG="${{ vars.FLY_ORG || 'future-selves-126872' }}"
           echo "Creating apps in organization: $ORG"
           echo ""
 
@@ -118,8 +123,8 @@ jobs:
           if [ "$FAILED" -ne 0 ]; then
             echo ""
             echo "::error::App creation failed. Check the organization list printed by the"
-            echo "::error::previous step. If your organization is NOT called 'personal',"
-            echo "::error::copy its slug and add it on GitHub under:"
+            echo "::error::previous step. If the SLUG column does not show 'future-selves-126872',"
+            echo "::error::copy the slug it does show and add it on GitHub under:"
             echo "::error::  Settings → Secrets and variables → Actions → Variables tab"
             echo "::error::  → New repository variable → Name: FLY_ORG, Value: <the slug>"
             echo "::error::Then run this workflow again."
