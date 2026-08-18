@@ -50,31 +50,84 @@ jobs:
 
     steps:
       - name: Get the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Check the Fly token works
+      # ── Preflight ───────────────────────────────────────────────────────────
+      # Checks the token before doing anything, and prints the exact list of
+      # organizations it can see. If app creation later fails, that printed
+      # list is what tells us the right value to use.
+      - name: Preflight — check the token and list your organizations
         run: |
+          echo "flyctl version: $(flyctl version || true)"
+
           if [ -z "$FLY_API_TOKEN" ]; then
-            echo "::error::FLY_API_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            echo "::error::FLY_API_TOKEN is empty."
+            echo "::error::Add it at: Settings → Secrets and variables → Actions → New repository secret."
+            echo "::error::The name must be exactly FLY_API_TOKEN."
             exit 1
           fi
-          flyctl auth whoami
+
+          echo "Token received: ${#FLY_API_TOKEN} characters long."
+          case "$FLY_API_TOKEN" in
+            FlyV1*)
+              echo "Token format looks correct (begins with FlyV1)." ;;
+            *)
+              echo "::warning::Your token does not begin with 'FlyV1'."
+              echo "::warning::You may have missed the start when copying. Fly shows it once —"
+              echo "::warning::if unsure, create a fresh token and re-paste the WHOLE thing." ;;
+          esac
+
+          echo ""
+          echo "─── Organizations this token can see ───"
+          if ! flyctl orgs list; then
+            echo "::error::Could not list organizations, which means the token was rejected."
+            echo "::error::Most likely causes, in order:"
+            echo "::error::  1. The token is read-only. Create a STANDARD org token, not a read-only one."
+            echo "::error::  2. Part of the token was missed when copying (it must start with 'FlyV1 ')."
+            echo "::error::  3. The token expired."
+            echo "::error::Fix: Fly dashboard → Tokens → create a new one → replace FLY_API_TOKEN on GitHub."
+            exit 1
+          fi
+          echo "───────────────────────────────────────"
 
       - name: Create the three apps if they do not exist yet
         run: |
           ORG="${{ vars.FLY_ORG || 'personal' }}"
-          echo "Using Fly organization: $ORG"
+          echo "Creating apps in organization: $ORG"
+          echo ""
+
+          FAILED=0
           for app in fsf-chatbot1 fsf-chatbot2 fsf-scheduler; do
-            if flyctl apps list | awk '{print $1}' | grep -qx "$app"; then
+            if flyctl apps list 2>/dev/null | awk '{print $1}' | grep -qx "$app"; then
               echo "✓ $app already exists — leaving it alone"
+              continue
+            fi
+
+            echo "→ creating $app"
+            if flyctl apps create "$app" --org "$ORG"; then
+              echo "✓ created $app"
             else
-              echo "→ creating $app"
-              flyctl apps create "$app" --org "$ORG"
+              echo "::error::Could not create $app in organization '$ORG'."
+              FAILED=1
             fi
           done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "::error::App creation failed. Check the organization list printed by the"
+            echo "::error::previous step. If your organization is NOT called 'personal',"
+            echo "::error::copy its slug and add it on GitHub under:"
+            echo "::error::  Settings → Secrets and variables → Actions → Variables tab"
+            echo "::error::  → New repository variable → Name: FLY_ORG, Value: <the slug>"
+            echo "::error::Then run this workflow again."
+            echo "::error::"
+            echo "::error::If instead the error above says the NAME IS TAKEN, someone else"
+            echo "::error::already owns that app name. Tell Claude and it will rename all three."
+            exit 1
+          fi
 
       - name: Deploy Chatbot 1
         if: inputs.target == 'all' || inputs.target == 'chatbot1'
@@ -106,7 +159,7 @@ jobs:
           echo "✓ Exactly one scheduler machine — no duplicate-text risk."
 
       - name: What to do next
-        if: inputs.target == 'create-apps-only'
+        if: success() && inputs.target == 'create-apps-only'
         run: |
           {
             echo "## Apps created"
@@ -114,12 +167,12 @@ jobs:
             echo "The three apps now exist but nothing is deployed yet."
             echo ""
             echo "**Next:** go to the Fly dashboard and add each app's secrets"
-            echo "(dashboard.fly.io → the app → Secrets). Then come back here and"
+            echo "(fly.io/dashboard → the app → Secrets). Then come back here and"
             echo "run this workflow again with **all** selected."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summary
-        if: inputs.target != 'create-apps-only'
+        if: success() && inputs.target != 'create-apps-only'
         run: |
           {
             echo "## Deploy finished"
@@ -131,5 +184,5 @@ jobs:
             echo "| Scheduler | no website — background worker |"
             echo ""
             echo "If a chatbot shows an error, its secrets are probably missing."
-            echo "Add them at: Fly dashboard → the app → Secrets."
+            echo "Add them at: fly.io/dashboard → the app → Secrets."
           } >> "$GITHUB_STEP_SUMMARY"
