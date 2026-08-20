@@ -134,34 +134,77 @@ jobs:
             exit 1
           fi
 
+      # ── A note on --ha=false, used on all three deploys ─────────────────────
+      # Fly defaults to creating TWO machines per app for high availability.
+      # That default is wrong for every app in this study:
+      #
+      #   Scheduler — the cron fires on every machine, so two machines means
+      #               every participant gets two identical check-in texts.
+      #   Chatbots  — Streamlit keeps a participant's conversation in memory on
+      #               one machine. If a network blip reconnects them to the
+      #               other machine, their session is empty and 20 minutes of
+      #               conversation is gone mid-session.
+      #
+      # One machine per app is both safer and cheaper here. `flyctl scale count 1`
+      # after each deploy also cleans up extra machines from earlier deploys.
+
       - name: Deploy Chatbot 1
         if: inputs.target == 'all' || inputs.target == 'chatbot1'
-        run: flyctl deploy --remote-only --config fly.chatbot1.toml
+        run: |
+          flyctl deploy --remote-only --ha=false --config fly.chatbot1.toml
+          flyctl scale count 1 --yes -a fsf-chatbot1
 
       - name: Deploy Chatbot 2
         if: inputs.target == 'all' || inputs.target == 'chatbot2'
-        run: flyctl deploy --remote-only --config fly.chatbot2.toml
+        run: |
+          flyctl deploy --remote-only --ha=false --config fly.chatbot2.toml
+          flyctl scale count 1 --yes -a fsf-chatbot2
 
       - name: Deploy the SMS scheduler
         if: inputs.target == 'all' || inputs.target == 'scheduler'
-        run: flyctl deploy --remote-only --config fly.scheduler.toml
+        run: |
+          flyctl deploy --remote-only --ha=false --config fly.scheduler.toml
+          flyctl scale count 1 --yes -a fsf-scheduler
 
       # ── Safety check ────────────────────────────────────────────────────────
       # Supercronic fires on every machine it runs on. Two machines would mean
       # every participant receives two identical check-in texts. This fails the
       # run loudly rather than letting that reach a participant.
-      - name: Confirm the scheduler is running exactly one machine
-        if: inputs.target == 'all' || inputs.target == 'scheduler'
+      - name: Confirm every app is running exactly one machine
+        if: inputs.target != 'create-apps-only'
         run: |
-          COUNT=$(flyctl machines list -a fsf-scheduler --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
-          echo "Scheduler machine count: $COUNT"
-          if [ "$COUNT" -ne 1 ]; then
-            echo "::error::The scheduler has $COUNT machines but must have exactly 1."
-            echo "::error::More than one machine means participants get duplicate check-in texts."
-            echo "::error::Fix it in the Fly dashboard: fsf-scheduler → Machines → destroy the extras."
-            exit 1
+          count_machines() {
+            flyctl machines list -a "$1" --json 2>/dev/null \
+              | python3 -c "import json,sys; print(len(json.load(sys.stdin)))" 2>/dev/null \
+              || echo "?"
+          }
+
+          FAIL=0
+
+          for app in fsf-chatbot1 fsf-chatbot2; do
+            C=$(count_machines "$app")
+            echo "$app machine count: $C"
+            if [ "$C" != "1" ]; then
+              echo "::warning::$app has $C machines. Streamlit keeps each participant's"
+              echo "::warning::conversation in memory on one machine, so a reconnect to a"
+              echo "::warning::different machine loses their session. Set it to 1 at:"
+              echo "::warning::Fly dashboard → $app → Machines."
+            fi
+          done
+
+          C=$(count_machines fsf-scheduler)
+          echo "fsf-scheduler machine count: $C"
+          if [ "$C" != "1" ]; then
+            echo "::error::The scheduler has $C machines but must have exactly 1."
+            echo "::error::The cron fires on every machine, so more than one means every"
+            echo "::error::participant receives duplicate check-in texts."
+            echo "::error::Fix: Fly dashboard → fsf-scheduler → Machines → destroy the extras,"
+            echo "::error::then run this workflow again."
+            FAIL=1
           fi
-          echo "✓ Exactly one scheduler machine — no duplicate-text risk."
+
+          [ "$FAIL" -eq 0 ] || exit 1
+          echo "✓ Scheduler is running exactly one machine — no duplicate-text risk."
 
       - name: What to do next
         if: success() && inputs.target == 'create-apps-only'
