@@ -34,7 +34,7 @@ os.environ["OPENAI_API_KEY"]       = st.secrets["OPENAI_API_KEY"]
 os.environ["OPENAI_API_BASE"] = st.secrets["OPENAI_API_BASE"]
 os.environ["LANGCHAIN_API_KEY"]    = st.secrets["LANGCHAIN_API_KEY"]
 os.environ["LANGCHAIN_PROJECT"]    = st.secrets["LANGCHAIN_PROJECT"]
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 # ── Config ────────────────────────────────────────────────────────────────────
 input_args  = sys.argv[1:]
