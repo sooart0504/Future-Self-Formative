@@ -177,6 +177,44 @@ def wake_time_is_on_grid(wake_time_str):
         return False
 
 
+def normalize_phone(value):
+    """
+    Return a Twilio-ready E.164 number, or "" if it cannot be worked out.
+
+    Google Sheets treats a leading "+" as the start of a formula, so a
+    number typed as +18475551234 comes back as 18475551234 with the plus
+    silently removed. Rather than relying on whoever types it to win that
+    argument every time, the number is repaired here.
+
+        (847) 555-1234    -> +18475551234
+        847-555-1234      -> +18475551234
+        18475551234       -> +18475551234
+        +44 20 7946 0000  -> +442079460000   (already explicit, left alone)
+
+    Anything that is not a recognisable US 10/11-digit number and does not
+    already start with "+" returns "" so the caller can warn and skip,
+    rather than handing Twilio something that will be rejected.
+    """
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+
+    explicit_plus = text.startswith("+")
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if not digits:
+        return ""
+
+    if explicit_plus:
+        return "+" + digits          # trust an explicit country code
+    if len(digits) == 10:
+        return "+1" + digits         # US, no country code
+    if len(digits) == 11 and digits.startswith("1"):
+        return "+" + digits          # US, country code but no plus
+    return ""                        # not safe to guess
+
+
 # ── TWILIO ────────────────────────────────────────────────────
 
 _twilio = None
@@ -254,6 +292,15 @@ def main():
             print(f"[SKIP] PID={pid} — missing phone, wake_time or timezone")
             skipped += 1
             continue
+
+        e164 = normalize_phone(phone)
+        if not e164:
+            print(f"[WARN] PID={pid} — phone '{phone}' is not a usable number. "
+                  f"Expected 10 or 11 US digits, or an explicit +country number. "
+                  f"This participant will receive NO texts.")
+            skipped += 1
+            continue
+        phone = e164
         if not wake_time_is_on_grid(wake):
             print(f"[WARN] PID={pid} — wake_time '{wake}' is not on the :00/:30 grid. "
                   f"This participant will receive NO texts. Fix it in the {TAB_SCHEDULE} tab.")
