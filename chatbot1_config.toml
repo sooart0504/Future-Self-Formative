@@ -43,7 +43,7 @@ questions = [
     "Thinking about those values — what does a life that truly honors them look and feel like, day to day? Not a perfect life, but one where you feel you're genuinely living in a way that's true to what matters to you. And in that kind of life, what does your body feel like — your energy, your strength, your ability to show up for the things and people that matter to you?",
     "For many people, being physically healthy and active is what makes that kind of life possible — it's the foundation that lets them show up fully for what matters most. How does that resonate for you? What would it mean for your health and your physical energy to support the life you just described? And what does staying active look like in that life — not as a chore, but as part of how you live?",
     "Now I'd like you to bring this all together into a vivid picture. Imagine the version of yourself who is living this life — grounded in your values, healthy and active in the way that supports everything that matters to you. Picture a day in that life. Where are you? What are you doing? Who is around you? What does it feel like to be in that body, moving through that day? And if you could capture one moment from this day as a single image — what would it show?",
-    "This version of yourself you've been describing — how far into the future does this person feel to you? Is this someone you could become in a year or two, or does it feel further out? And is this connected to anything happening in your life — a change you're expecting, a milestone you're moving toward, or simply a feeling of what's possible from here?"
+    "This version of yourself you've been describing — is this connected to anything happening in your life? A change you're expecting, a milestone you're moving toward, or simply a feeling of what's possible from here?"
 ]
 
 # ─── SUMMARIES ───────────────────────────────────────────────────────────────
@@ -55,7 +55,11 @@ values                  = "What does this person value deeply in life — what f
 full_life               = "What does a life that honors those values look and feel like, and how does their body feel in that life?"
 health_foundation       = "How does being physically healthy and active connect to their valued life, and what does staying active look like for them?"
 future_self_description = "How do they describe their ideal future self — what does a day in that life look like, and what is the visual or emotional snapshot?"
-timeline                = "How far into the future is this version of themselves, and is it connected to any life event or milestone?"
+# The DURATION is no longer asked here — the horizon picker below collects it
+# as a fixed choice, so the conversation does not ask the same thing twice.
+# This field now holds only the qualitative half: what the future self is
+# anchored to. The column name stays `timeline` so the sheet needs no change.
+timeline                = "Is this future self connected to any life event, milestone, or expected change — and if so, what?"
 
 # Story personas (same 3 options as before)
 [summaries.personas]
@@ -128,3 +132,60 @@ fields = [
     "anchor_cant",
     "anchor_rest"
 ]
+
+# ─── TIMELINE HORIZON ────────────────────────────────────────────────────────
+# Asked once, right after the Topic 1 conversation, before the anchoring form.
+#
+# The participant's answer is LOCKED and reused verbatim in every later FSCQ
+# administration — the weekly 3-item measure during the trial and the full
+# instrument at each endpoint. A stem reading "2 years" post-chatbot and
+# "5 years" at endpoint would confound within-person change with horizon
+# drift, which is why this is a fixed choice and not free text.
+#
+# `stored` is the full prepositional phrase, so one template serves every
+# option: "How similar are you now to who you will be {HORIZON}?"
+#
+# RETIREMENT
+# Retirement is offered as a fifth framing because it is how many adults in
+# this age range actually describe their future, but it does not itself give
+# a number. Picking it therefore asks one follow-up for the duration, and
+# what gets STORED is still a duration. That keeps every FSCQ stem uniform
+# and every participant's horizon orderable — which the analysis needs, since
+# continuity runs higher for nearer horizons and that has to be accounted
+# for. An already-retired participant simply will not choose it.
+#
+# `framing` records which route they took, for the Session 1 interview and
+# for reporting how this population construes its future self. It does not
+# affect any stem.
+
+[horizon]
+
+question = "One last thing about that future version of yourself — roughly how far away does this person feel to you?"
+
+helper = "Pick whichever is closest. There's no right answer, and this just helps us ask you about that same future self in the same way each time."
+
+# Shown only after the retirement option is chosen.
+followup = "And about how many years from now do you expect that to be?"
+
+followup_helper = "Your best guess is fine."
+
+[[horizon.options]]
+label  = "About 1 year from now"
+stored = "in 1 year"
+
+[[horizon.options]]
+label  = "About 2 years from now"
+stored = "in 2 years"
+
+[[horizon.options]]
+label  = "About 5 years from now"
+stored = "in 5 years"
+
+[[horizon.options]]
+label  = "About 10 years from now"
+stored = "in 10 years"
+
+# No `stored` value — this one asks the follow-up instead.
+[[horizon.options]]
+label      = "Around when I retire"
+ask_years  = true
