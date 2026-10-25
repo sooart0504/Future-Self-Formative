@@ -47,6 +47,23 @@ class LLMConfig:
             self.anchoring_fields  = []
             self.has_anchoring     = False
 
+        # ── Timeline horizon (Chatbot 1 only) ─────────────────────────────────
+        # Absent for Chatbot 2, which has no FSCQ stem to fill.
+        if "horizon" in config:
+            self.horizon_question        = config["horizon"]["question"].strip()
+            self.horizon_helper          = config["horizon"].get("helper", "").strip()
+            self.horizon_followup        = config["horizon"].get("followup", "").strip()
+            self.horizon_followup_helper = config["horizon"].get("followup_helper", "").strip()
+            self.horizon_options         = config["horizon"]["options"]
+            self.has_horizon             = True
+        else:
+            self.horizon_question        = ""
+            self.horizon_helper          = ""
+            self.horizon_followup        = ""
+            self.horizon_followup_helper = ""
+            self.horizon_options         = []
+            self.has_horizon             = False
+
         # ── Extraction templates ──────────────────────────────────────────────
         self.topic1_extraction_template = self._build_extraction_prompt(
             config["summaries"]["topic1_questions"])
