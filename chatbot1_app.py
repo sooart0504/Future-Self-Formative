@@ -54,6 +54,8 @@ defaults = {
     "consent":             False,
     "created_time":        datetime.now(),
     "answers_t1":          {},
+    "timeline_horizon":    "",   # locked FSCQ horizon, e.g. "in 2 years"
+    "horizon_framing":     "",   # "duration" or "retirement"
     "anchoring_responses": {},   # {field_name: response_text}
     "topic1_stories":      [],
     "locked_persona":      None,
@@ -116,6 +118,10 @@ def save_to_sheet():
         # Final narrative
         "narrative_ideal":          str(st.session_state.get("story_final", "")),
 
+        # The locked FSCQ horizon, e.g. "in 2 years". Reused verbatim by the
+        # check-in page and every later administration.
+        "timeline_horizon":         str(st.session_state.get("timeline_horizon", "")),
+
         "revision_count":           str(st.session_state.get("revision_count", 0)),
         "chat_log_t1":              str(msgs_t1.messages),
     }
@@ -126,6 +132,15 @@ def save_to_sheet():
         values[field] = str(anchors.get(field, ""))
 
     headers = [str(h).strip() for h in sheet.row_values(1)]
+
+    # horizon_framing is metadata — whether they reached their horizon
+    # directly or via the retirement route. Deliberately best-effort: it is
+    # added ONLY if the column exists, because the strict check below aborts
+    # the whole save on an unmatched field, and losing an entire session over
+    # an optional flag would be a far worse failure than losing the flag.
+    if "horizon_framing" in headers:
+        values["horizon_framing"] = str(st.session_state.get("horizon_framing", ""))
+
     if not headers:
         raise RuntimeError(
             "Tab 1 of the study sheet has no header row. The row cannot be "
@@ -400,6 +415,82 @@ def show_revise_story():
         st.rerun()
 
 
+# ── Timeline horizon ──────────────────────────────────────────────────────────
+def show_horizon_picker():
+    """
+    Asks once, between the Topic 1 conversation and the anchoring form, how
+    far away the participant's future self feels.
+
+    The answer is stored as a full prepositional phrase ("in 2 years") and
+    reused verbatim in every later FSCQ stem — the weekly 3-item measure
+    during the trial and the full instrument at each endpoint. It is a fixed
+    choice rather than free text because the stem has to read identically
+    every time: "2 years" post-chatbot and "5 years" at endpoint would
+    confound within-person change with horizon drift.
+
+    No option is pre-selected. A default would be silently accepted by
+    anyone clicking through, and this value cannot be recovered afterwards.
+
+    One option — "Around when I retire" — carries no duration of its own, so
+    choosing it reveals a follow-up asking for the number of years. What gets
+    stored is still a duration either way; `horizon_framing` records which
+    route they took.
+    """
+    # This is the ONLY place the duration is asked. The Topic 1 conversation
+    # used to ask it too and now asks only what the future self is anchored
+    # to, so there is nothing to reflect back here and no risk of a
+    # conversational answer disagreeing with the stored choice.
+    st.chat_message("ai").write(cfg.horizon_question)
+    st.divider()
+
+    labels = [opt["label"] for opt in cfg.horizon_options]
+
+    choice = st.radio(
+        label=cfg.horizon_helper or "Choose one",
+        options=labels,
+        index=None,                 # nothing pre-selected on purpose
+        key="horizon_choice"
+    )
+
+    chosen = next((o for o in cfg.horizon_options if o["label"] == choice), None)
+    needs_years = bool(chosen and chosen.get("ask_years"))
+
+    # The follow-up appears inline, as soon as the retirement option is
+    # picked, rather than on a second screen — it is one question and a
+    # screen change would make it feel like a penalty for that answer.
+    years_choice = None
+    if needs_years:
+        st.divider()
+        st.markdown("**" + cfg.horizon_followup + "**")
+        years_choice = st.radio(
+            label=cfg.horizon_followup_helper or "Choose one",
+            options=[o["label"] for o in cfg.horizon_options if o.get("stored")],
+            index=None,
+            key="horizon_years"
+        )
+
+    if st.button("Continue", key="submit_horizon"):
+        if chosen is None:
+            st.warning("Please choose one before continuing.")
+            return
+
+        if needs_years:
+            if years_choice is None:
+                st.warning("Please choose roughly how many years before continuing.")
+                return
+            stored  = next(o["stored"] for o in cfg.horizon_options
+                           if o.get("stored") and o["label"] == years_choice)
+            framing = "retirement"
+        else:
+            stored  = chosen["stored"]
+            framing = "duration"
+
+        st.session_state["timeline_horizon"] = stored
+        st.session_state["horizon_framing"]  = framing
+        st.session_state["agentState"]       = "anchoring"
+        st.rerun()
+
+
 # ── Anchoring form ────────────────────────────────────────────────────────────
 def show_anchoring_form():
     """
@@ -459,8 +550,15 @@ def state_agent():
             entry_container
         )
         if finished:
-            st.session_state["agentState"] = "anchoring"
+            # The horizon question comes first: it belongs with the future
+            # self they have just finished describing, while that is still
+            # in mind, and before the anchoring form shifts attention to
+            # specific obstacle days.
+            st.session_state["agentState"] = "horizon" if cfg.has_horizon else "anchoring"
             st.rerun()
+
+    elif state == "horizon":
+        show_horizon_picker()
 
     elif state == "anchoring":
         show_anchoring_form()
