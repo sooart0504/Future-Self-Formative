@@ -36,7 +36,7 @@ ENVIRONMENT VARIABLES
 
 import os
 import json
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, time, timedelta
 
 import pytz
 import gspread
@@ -150,7 +150,59 @@ def normalize_date(value):
     return text
 
 
-def is_send_window(wake_time_str, timezone_name):
+def parse_wake_time(value):
+    """
+    Return (hour, minute) from whatever the sheet hands back, or None.
+
+    A wake_time cell formatted as a TIME in Google Sheets does not come
+    back as "11:30". Depending on the cell's format it arrives as
+    "11:30:00", "11:30 AM", "11:30:00 AM" or "4:00 PM", and a naive
+    split(":") either crashes or parses garbage. Only a cell formatted as
+    plain text gives the bare "11:30" this used to assume.
+
+    Accepting all of these is better than requiring the researcher to
+    remember a cell format, because the failure is invisible: a crash here
+    means that participant is simply never texted.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, time):
+        return value.hour, value.minute
+    if isinstance(value, datetime):
+        return value.hour, value.minute
+
+    text = str(value).strip().upper()
+    if not text:
+        return None
+
+    meridiem = None
+    for suffix in ("AM", "PM"):
+        if text.endswith(suffix):
+            meridiem = suffix
+            text = text[: -len(suffix)].strip()
+            break
+
+    parts = text.split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hh = int(parts[0])
+        mm = int(parts[1])
+    except ValueError:
+        return None
+
+    if meridiem == "PM" and hh != 12:
+        hh += 12
+    elif meridiem == "AM" and hh == 12:
+        hh = 0
+
+    if not (0 <= hh <= 23 and 0 <= mm <= 59):
+        return None
+    return hh, mm
+
+
+def is_send_window(wake_time_value, timezone_name):
     """
     True if we are inside [wake_time, wake_time + 25 minutes] right now,
     in the participant's timezone.
@@ -162,19 +214,22 @@ def is_send_window(wake_time_str, timezone_name):
     An off-grid value such as 07:05 or 07:31 falls between windows and the
     participant receives NOTHING, all trial long. The check below catches it.
     """
+    parsed = parse_wake_time(wake_time_value)
+    if parsed is None:
+        return False
+
+    hh, mm = parsed
     tz = pytz.timezone(timezone_name)
     now = datetime.now(tz)
-    hh, mm = map(int, wake_time_str.split(":"))
     wake = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
     return wake <= now < wake + timedelta(minutes=SEND_WINDOW_MINUTES)
 
 
-def wake_time_is_on_grid(wake_time_str):
-    try:
-        _, mm = wake_time_str.split(":")
-        return int(mm) in (0, 30)
-    except Exception:
+def wake_time_is_on_grid(wake_time_value):
+    parsed = parse_wake_time(wake_time_value)
+    if parsed is None:
         return False
+    return parsed[1] in (0, 30)
 
 
 def normalize_phone(value):
