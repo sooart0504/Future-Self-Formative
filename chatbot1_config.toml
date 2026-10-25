@@ -91,6 +91,13 @@ scenario = """I move through my days with a quiet kind of strength. Each morning
 
 [anchoring]
 
+# Nine prompts, in the order participants see them. The order here must
+# match the `fields` list below, item for item — they are zipped together.
+#
+# The last two are deliberately different in kind from the first seven.
+# The first seven are obstacles to work around; anchor_cant and
+# anchor_rest are for days where being active is not going to happen,
+# and their job is to acknowledge that without implying failure.
 prompts = [
     "On a day that feels fully aligned with my values, I am someone who",
     "When the weather or outdoor conditions make it hard to be active, I am someone who",
@@ -98,11 +105,18 @@ prompts = [
     "When I'm away from home or traveling, I am someone who",
     "When my body isn't feeling its best, I am someone who",
     "When I don't have access to my usual place or equipment to be active, I am someone who",
+    "When something unexpected gets in the way of being active, I am someone who",
     "When life gets in the way and being active feels out of reach, I am someone who",
     "On days when rest is what I truly need, I am someone who"
 ]
 
-# Field names — must match Qualtrics embedded data fields exactly
+# Field names — must match the Chatbot1 tab column headings exactly.
+#
+# anchor_other  → shown when a participant taps the "Something else"
+#                 barrier chip on a day they still plan to be active.
+# anchor_cant   → shown on a day the participant reports they cannot be
+#                 active at all. Previously this field's wording lived
+#                 under anchor_other, which conflated the two.
 fields = [
     "anchor_ideal",
     "anchor_weather",
@@ -111,5 +125,6 @@ fields = [
     "anchor_physical",
     "anchor_access",
     "anchor_other",
+    "anchor_cant",
     "anchor_rest"
 ]
