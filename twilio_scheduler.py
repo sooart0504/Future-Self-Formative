@@ -1,180 +1,313 @@
 """
 Future Self Formative Study — Twilio SMS Scheduler
-Runs via Render cron job every 30 minutes.
+===================================================
 
-Sends check-in SMS to participants on their scheduled check-in days,
-at their preferred wake time, with PID + occasion number in the URL.
+Runs every 30 minutes on Fly.io (via Supercronic, see crontab).
 
-Check-in schedule (fixed, internal only):
-  Week 1: Days 1, 3, 5, 7      (4 check-ins)
-  Week 2: Days 8, 11, 14       (3 check-ins)
-  Week 3: Days 17, 21          (2 check-ins)
-  Week 4: Day 28               (1 check-in)
-  Total: 10 check-ins over 28 days
+WHAT CHANGED FROM THE PREVIOUS VERSION
+--------------------------------------
+Check-in days used to be a fixed list written into this file:
+    CHECKIN_DAYS = [1, 3, 5, 7, 8, 11, 14, 17, 21, 28]
+
+They are now randomized per participant and generated once at
+enrollment by the Apps Script generator, which writes ten rows per
+participant to the "CheckinSchedule" tab. This script no longer
+decides WHEN anyone gets a text — it looks it up.
+
+Three other changes:
+  * The double-send guard moved from Tab 3's current_occasion to
+    the sms_sent_at column on each scheduled row.
+  * Send failures are written back to the sheet (status / error)
+    rather than only printed, so a suspended Twilio account is
+    visible where you are already looking.
+  * DRY_RUN mode logs what it would send without calling Twilio
+    and without writing anything.
+
+ENVIRONMENT VARIABLES
+---------------------
+    TWILIO_ACCOUNT_SID
+    TWILIO_AUTH_TOKEN
+    TWILIO_FROM_NUMBER      e.g. "+13135550123"
+    GOOGLE_SHEET_ID
+    GOOGLE_CREDENTIALS      service account JSON, one line
+    CHECKIN_APP_URL         e.g. "https://sooart0504.github.io/.../check-in/"
+    DRY_RUN                 optional. "1" / "true" = log only, send nothing.
 """
 
 import os
-import pytz
-from datetime import datetime, timedelta
+import json
+from datetime import datetime, date, timedelta
 
-from twilio.rest import Client
+import pytz
 import gspread
 from google.oauth2.service_account import Credentials
+from twilio.rest import Client
 
 # ── CONFIGURATION ─────────────────────────────────────────────
-# Set these as environment variables in Render — never hardcode
 
 TWILIO_ACCOUNT_SID = os.environ["TWILIO_ACCOUNT_SID"]
 TWILIO_AUTH_TOKEN  = os.environ["TWILIO_AUTH_TOKEN"]
-TWILIO_FROM_NUMBER = os.environ["TWILIO_FROM_NUMBER"]   # e.g. "+12345678900"
+TWILIO_FROM_NUMBER = os.environ["TWILIO_FROM_NUMBER"]
 
 GOOGLE_SHEET_ID    = os.environ["GOOGLE_SHEET_ID"]
-GOOGLE_CREDENTIALS = os.environ["GOOGLE_CREDENTIALS"]   # JSON string of service account key
+GOOGLE_CREDENTIALS = os.environ["GOOGLE_CREDENTIALS"]
+CHECKIN_APP_URL    = os.environ["CHECKIN_APP_URL"]
 
-CHECKIN_APP_URL    = os.environ["CHECKIN_APP_URL"]       # e.g. "https://yourname.github.io/future-self-checkin/"
+DRY_RUN = os.environ.get("DRY_RUN", "").strip().lower() in ("1", "true", "yes")
 
-# Tab 3 column names (must match your sheet exactly)
-COL_PID        = "PID"
-COL_PHONE      = "phone"
-COL_WAKE_TIME  = "wake_time"       # HH:MM in 24-hour, e.g. "07:30"
-COL_TIMEZONE   = "timezone"        # IANA, e.g. "America/Detroit"
-COL_ACTIVE     = "active"          # "Y" or "N"
-COL_TRIAL_START= "trial_start"     # Date trial started, e.g. "2026-05-15"
-COL_OCCASION   = "current_occasion"# Running count of occasions sent so far (0-indexed)
+TAB_SCHEDULE = "Schedule"
+TAB_CHECKIN_SCHEDULE = "CheckinSchedule"
 
-# Fixed check-in day schedule (days since trial start, 1-indexed)
-CHECKIN_DAYS = [1, 3, 5, 7, 8, 11, 14, 17, 21, 28]
+# Tab 3 — participant level
+COL_PID       = "PID"
+COL_PHONE     = "phone"
+COL_WAKE_TIME = "wake_time"      # "HH:MM", 24-hour, must end :00 or :30
+COL_TIMEZONE  = "timezone"       # IANA, e.g. "America/Detroit"
+COL_ACTIVE    = "active"         # "Y" / "N"
 
-# SMS message template
+# Tab 6 — one row per participant per check-in
+COL_CS_PID       = "PID"
+COL_CS_OCCASION  = "occasion"
+COL_CS_DATE      = "scheduled_date"   # YYYY-MM-DD
+COL_CS_SENT_AT   = "sms_sent_at"
+COL_CS_STATUS    = "status"           # SENT / FAILED
+COL_CS_ERROR     = "error"
+
+SEND_WINDOW_MINUTES = 25   # paired with the 30-minute cron; see is_send_window
+
 SMS_TEMPLATE = (
     "Good morning! It's time for your morning check-in. "
     "Tap the link to get started: {url}"
 )
 
+
 # ── GOOGLE SHEETS ─────────────────────────────────────────────
-def get_sheet_tab3():
-    import json
+
+def open_sheet():
     creds_dict = json.loads(GOOGLE_CREDENTIALS)
-    scopes     = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds      = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    client     = gspread.authorize(creds)
-    sheet      = client.open_by_key(GOOGLE_SHEET_ID)
-    return sheet.worksheet("Schedule")  # adjust tab name if needed
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return gspread.authorize(creds).open_by_key(GOOGLE_SHEET_ID)
 
-def get_participants(tab):
-    """Returns list of dicts, one per row, keyed by header names."""
-    records = tab.get_all_records()
-    return records
 
-def update_occasion(tab, row_index, new_occasion):
-    """Increments the current_occasion column for a participant row."""
-    # row_index is 1-based; row 1 is headers, so data starts at row 2
-    headers = tab.row_values(1)
-    col_idx = headers.index(COL_OCCASION) + 1  # 1-based
-    tab.update_cell(row_index + 2, col_idx, new_occasion)
+def require_columns(tab_name, headers, needed):
+    """Fail loudly and specifically rather than writing to the wrong column."""
+    missing = [c for c in needed if c not in headers]
+    if missing:
+        raise RuntimeError(
+            f'Tab "{tab_name}" is missing column(s): {", ".join(missing)}. '
+            f'Found: {", ".join(headers)}'
+        )
 
-# ── SCHEDULING LOGIC ──────────────────────────────────────────
-def get_day_of_trial(trial_start_str, participant_tz):
+
+def write_cells(tab, row_number, headers, updates):
     """
-    Returns the current day of the trial (1-indexed) in the participant's timezone.
-    trial_start_str: "YYYY-MM-DD" string (the date of the day AFTER Session 2)
+    Write {column_name: value} to a row, located BY HEADER NAME.
+    row_number is 1-based including the header row.
     """
-    tz            = pytz.timezone(participant_tz)
-    now_local     = datetime.now(tz)
-    trial_start   = tz.localize(datetime.strptime(trial_start_str, "%Y-%m-%d"))
-    delta         = (now_local.date() - trial_start.date()).days + 1  # 1-indexed
-    return delta
+    for col_name, value in updates.items():
+        col_index = headers.index(col_name) + 1
+        tab.update_cell(row_number, col_index, value)
 
-def is_checkin_day(day_of_trial):
-    """Returns True if today is a scheduled check-in day."""
-    return day_of_trial in CHECKIN_DAYS
 
-def get_occasion_number(day_of_trial):
-    """Returns the 1-indexed occasion number for a given trial day."""
+# ── TIMING ────────────────────────────────────────────────────
+
+def local_today(timezone_name):
+    """Today's calendar date in the participant's own timezone."""
+    return datetime.now(pytz.timezone(timezone_name)).strftime("%Y-%m-%d")
+
+
+def normalize_date(value):
+    """
+    Return YYYY-MM-DD for whatever the sheet hands back.
+
+    This exists because Google Sheets may store scheduled_date either as
+    plain text or as a real date value, and when it is a date value the
+    text that comes back depends on the spreadsheet's locale — "11/3/2026"
+    rather than "2026-11-03". Matching on the raw string would then fail
+    silently and nobody would ever be texted.
+
+    The generator formats that column as plain text, so this is a second
+    line of defence rather than the main one.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+
+    text = str(value).strip()
+    if not text:
+        return ""
+    # US ordering first — the study spreadsheet is US-locale. A date like
+    # 03/04/2026 is genuinely ambiguous, which is why the column is text.
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%m-%d-%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return text
+
+
+def is_send_window(wake_time_str, timezone_name):
+    """
+    True if we are inside [wake_time, wake_time + 25 minutes] right now,
+    in the participant's timezone.
+
+    The 25-minute window is deliberately paired with the 30-minute cron so
+    each wake time is caught exactly once.
+
+    IMPORTANT: this only works when wake_time minutes are :00 or :30.
+    An off-grid value such as 07:05 or 07:31 falls between windows and the
+    participant receives NOTHING, all trial long. The check below catches it.
+    """
+    tz = pytz.timezone(timezone_name)
+    now = datetime.now(tz)
+    hh, mm = map(int, wake_time_str.split(":"))
+    wake = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    return wake <= now < wake + timedelta(minutes=SEND_WINDOW_MINUTES)
+
+
+def wake_time_is_on_grid(wake_time_str):
     try:
-        return CHECKIN_DAYS.index(day_of_trial) + 1
-    except ValueError:
-        return None
+        _, mm = wake_time_str.split(":")
+        return int(mm) in (0, 30)
+    except Exception:
+        return False
 
-def is_send_window(wake_time_str, participant_tz, window_minutes=25):
-    """
-    Returns True if the current time (in participant's timezone) is within
-    [wake_time, wake_time + window_minutes].
-    The 30-min cron job + 25-min window ensures we catch each wake time
-    exactly once without double-sending.
-    """
-    tz       = pytz.timezone(participant_tz)
-    now      = datetime.now(tz)
-    hh, mm   = map(int, wake_time_str.split(":"))
-    wake_dt  = now.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    window_end = wake_dt + timedelta(minutes=window_minutes)
-    return wake_dt <= now < window_end
 
 # ── TWILIO ────────────────────────────────────────────────────
+
+_twilio = None
+
+def twilio_client():
+    global _twilio
+    if _twilio is None:
+        _twilio = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    return _twilio
+
+
 def send_sms(to_number, pid, occasion):
-    """Sends the check-in SMS with PID and occasion in the URL."""
-    url     = f"{CHECKIN_APP_URL}?PID={pid}&occasion={occasion}"
-    message = SMS_TEMPLATE.format(url=url)
-    client  = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    client.messages.create(
-        body=message,
-        from_=TWILIO_FROM_NUMBER,
-        to=to_number
-    )
-    print(f"[SENT] PID={pid} | Occasion={occasion} | To={to_number} | URL={url}")
+    url = f"{CHECKIN_APP_URL}?PID={pid}&occasion={occasion}"
+    body = SMS_TEMPLATE.format(url=url)
+    if DRY_RUN:
+        print(f"[DRY-RUN] would text PID={pid} occasion={occasion} to={to_number}")
+        print(f"[DRY-RUN]   {body}")
+        return url
+    twilio_client().messages.create(body=body, from_=TWILIO_FROM_NUMBER, to=to_number)
+    print(f"[SENT] PID={pid} occasion={occasion} to={to_number}")
+    return url
+
 
 # ── MAIN ──────────────────────────────────────────────────────
+
 def main():
-    print(f"[RUN] Scheduler fired at {datetime.utcnow().isoformat()} UTC")
+    started = datetime.utcnow().isoformat()
+    print(f"[RUN] Scheduler fired at {started} UTC" + ("  (DRY RUN)" if DRY_RUN else ""))
 
     try:
-        tab          = get_sheet_tab3()
-        participants = get_participants(tab)
+        book = open_sheet()
+        sched_tab = book.worksheet(TAB_SCHEDULE)
+        cs_tab = book.worksheet(TAB_CHECKIN_SCHEDULE)
+        participants = sched_tab.get_all_records()
+        schedule_rows = cs_tab.get_all_records()
+        cs_headers = cs_tab.row_values(1)
     except Exception as e:
-        print(f"[ERROR] Could not read Google Sheets: {e}")
+        print(f"[FATAL] Could not read the spreadsheet: {e}")
         return
 
-    for i, p in enumerate(participants):
-        pid        = str(p.get(COL_PID, "")).strip()
-        phone      = str(p.get(COL_PHONE, "")).strip()
-        wake_time  = str(p.get(COL_WAKE_TIME, "")).strip()
-        timezone   = str(p.get(COL_TIMEZONE, "")).strip()
-        active     = str(p.get(COL_ACTIVE, "")).strip().upper()
-        trial_start= str(p.get(COL_TRIAL_START, "")).strip()
+    try:
+        require_columns(TAB_SCHEDULE, sched_tab.row_values(1),
+                        [COL_PID, COL_PHONE, COL_WAKE_TIME, COL_TIMEZONE, COL_ACTIVE])
+        require_columns(TAB_CHECKIN_SCHEDULE, cs_headers,
+                        [COL_CS_PID, COL_CS_OCCASION, COL_CS_DATE,
+                         COL_CS_SENT_AT, COL_CS_STATUS, COL_CS_ERROR])
+    except RuntimeError as e:
+        print(f"[FATAL] {e}")
+        return
 
-        # Skip inactive participants or rows with missing data
-        if active != "Y":
+    # Index the schedule rows so we can find one quickly.
+    # Value is the row number in the sheet (header is row 1).
+    by_key = {}
+    for i, row in enumerate(schedule_rows):
+        key = (str(row.get(COL_CS_PID, "")).strip(),
+               normalize_date(row.get(COL_CS_DATE, "")))
+        by_key[key] = (i + 2, row)
+
+    if not by_key:
+        print(f"[WARN] The {TAB_CHECKIN_SCHEDULE} tab has no rows. "
+              f"No schedules have been generated yet, so nobody can be texted.")
+
+    sent = skipped = failed = 0
+
+    for p in participants:
+        pid      = str(p.get(COL_PID, "")).strip()
+        phone    = str(p.get(COL_PHONE, "")).strip()
+        wake     = str(p.get(COL_WAKE_TIME, "")).strip()
+        tzname   = str(p.get(COL_TIMEZONE, "")).strip()
+        active   = str(p.get(COL_ACTIVE, "")).strip().upper()
+
+        if not pid or active != "Y":
             continue
-        if not all([pid, phone, wake_time, timezone, trial_start]):
-            print(f"[SKIP] PID={pid} — missing required fields")
+        if not all([phone, wake, tzname]):
+            print(f"[SKIP] PID={pid} — missing phone, wake_time or timezone")
+            skipped += 1
+            continue
+        if not wake_time_is_on_grid(wake):
+            print(f"[WARN] PID={pid} — wake_time '{wake}' is not on the :00/:30 grid. "
+                  f"This participant will receive NO texts. Fix it in the {TAB_SCHEDULE} tab.")
+            skipped += 1
             continue
 
         try:
-            day        = get_day_of_trial(trial_start, timezone)
-            occasion   = get_occasion_number(day)
+            today = local_today(tzname)
+        except Exception as e:
+            print(f"[SKIP] PID={pid} — bad timezone '{tzname}': {e}")
+            skipped += 1
+            continue
 
-            if occasion is None:
-                # Not a check-in day
-                continue
+        hit = by_key.get((pid, today))
+        if not hit:
+            continue                      # not a check-in day for this participant
 
-            if not is_send_window(wake_time, timezone):
-                # Not in the send window for this participant right now
-                continue
+        row_number, row = hit
+        occasion = row.get(COL_CS_OCCASION, "")
 
-            # Check if we've already sent this occasion (prevent double-send)
-            sent_so_far = int(p.get(COL_OCCASION, 0) or 0)
-            if occasion <= sent_so_far:
-                print(f"[SKIP] PID={pid} — Occasion {occasion} already sent")
-                continue
+        if str(row.get(COL_CS_SENT_AT, "")).strip():
+            continue                      # already sent — the double-send guard
 
-            # All checks passed — send SMS and update occasion counter
+        if not is_send_window(wake, tzname):
+            continue                      # right day, wrong half-hour
+
+        try:
             send_sms(phone, pid, occasion)
-            update_occasion(tab, i, occasion)
+            if not DRY_RUN:
+                write_cells(cs_tab, row_number, cs_headers, {
+                    COL_CS_SENT_AT: datetime.now(pytz.timezone(tzname)).strftime("%Y-%m-%d %H:%M"),
+                    COL_CS_STATUS:  "SENT",
+                    COL_CS_ERROR:   "",
+                })
+            sent += 1
 
         except Exception as e:
-            print(f"[ERROR] PID={pid}: {e}")
+            message = str(e)[:400]
+            print(f"[ERROR] PID={pid} occasion={occasion}: {message}")
+            failed += 1
+            if not DRY_RUN:
+                try:
+                    # sms_sent_at stays EMPTY so a later run inside the same
+                    # window can retry a transient failure.
+                    write_cells(cs_tab, row_number, cs_headers, {
+                        COL_CS_STATUS: "FAILED",
+                        COL_CS_ERROR:  message,
+                    })
+                except Exception as e2:
+                    print(f"[ERROR] could not record the failure in the sheet: {e2}")
 
-    print("[DONE] Scheduler run complete.")
+    print(f"[DONE] sent={sent} failed={failed} skipped={skipped}"
+          + ("  (DRY RUN — nothing was sent or written)" if DRY_RUN else ""))
+
 
 if __name__ == "__main__":
     main()
