@@ -77,7 +77,18 @@ memory_t1 = ConversationBufferMemory(memory_key="history", chat_memory=msgs_t1)
 SHEET_KEY = st.secrets.get("GOOGLE_SHEET_KEY", "YOUR_SHEET_KEY_HERE")
 
 def save_to_sheet():
-    """Saves all Chatbot 1 outputs to Tab 1 (worksheet index 0) of the study sheet."""
+    """Saves all Chatbot 1 outputs to Tab 1 (worksheet index 0) of the study sheet.
+
+    The row is assembled by matching the sheet's OWN header row by name,
+    not by counting positions. This matters: the earlier version built a
+    fixed-length list and appended it, so inserting or reordering a single
+    column in the sheet silently shifted every value after it into the
+    wrong column, with no error and no way to tell from the data.
+
+    Writing by name means column order in the sheet no longer has to agree
+    with any order in this file. Adding a field is a one-line change here
+    plus a new heading in the sheet, in whatever position reads best.
+    """
     creds  = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"],
         scopes=["https://www.googleapis.com/auth/spreadsheets"]
@@ -88,31 +99,52 @@ def save_to_sheet():
     t1      = st.session_state.get("answers_t1", {})
     anchors = st.session_state.get("anchoring_responses", {})
 
-    row = [
-        participant_id,
-        str(st.session_state.get("created_time", "")),
-        str(datetime.now()),
-        str(st.session_state.get("locked_persona_name", "")),
+    # Every value this chatbot produces, keyed by its column heading.
+    values = {
+        "PID":                      participant_id,
+        "timestamp_start":          str(st.session_state.get("created_time", "")),
+        "timestamp_end":            str(datetime.now()),
+        "persona_selected":         str(st.session_state.get("locked_persona_name", "")),
 
-        # Topic 1 extracted answers (5 fields)
-        str(t1.get("values", "")),
-        str(t1.get("full_life", "")),
-        str(t1.get("health_foundation", "")),
-        str(t1.get("future_self_description", "")),
-        str(t1.get("timeline", "")),
+        # Topic 1 extracted answers
+        "values":                   str(t1.get("values", "")),
+        "full_life":                str(t1.get("full_life", "")),
+        "health_foundation":        str(t1.get("health_foundation", "")),
+        "future_self_description":  str(t1.get("future_self_description", "")),
+        "timeline":                 str(t1.get("timeline", "")),
 
         # Final narrative
-        str(st.session_state.get("story_final", "")),
+        "narrative_ideal":          str(st.session_state.get("story_final", "")),
 
-        # Anchoring statements (8 fields — by field name)
-        *[str(anchors.get(field, "")) for field in cfg.anchoring_fields],
+        "revision_count":           str(st.session_state.get("revision_count", 0)),
+        "chat_log_t1":              str(msgs_t1.messages),
+    }
 
-        # Revision count
-        str(st.session_state.get("revision_count", 0)),
+    # Anchoring statements — field names come from chatbot1_config.toml,
+    # so adding a prompt there needs no change here.
+    for field in cfg.anchoring_fields:
+        values[field] = str(anchors.get(field, ""))
 
-        # Full chat log (topic 1 only)
-        str(msgs_t1.messages),
-    ]
+    headers = [str(h).strip() for h in sheet.row_values(1)]
+    if not headers:
+        raise RuntimeError(
+            "Tab 1 of the study sheet has no header row. The row cannot be "
+            "written by column name until the headings exist."
+        )
+
+    # A value with no matching heading would otherwise vanish without a
+    # trace — the one real risk of writing by name. Catch it loudly here
+    # rather than discovering missing anchors during analysis.
+    unmatched = [k for k in values if k not in headers]
+    if unmatched:
+        raise RuntimeError(
+            "These fields have no matching column heading in Tab 1 of the "
+            "study sheet: " + ", ".join(sorted(unmatched)) +
+            ". Add the heading(s) to the sheet — spelling and capitals must "
+            "match exactly — then try again. Nothing was saved."
+        )
+
+    row = [values.get(h, "") for h in headers]
     sheet.append_row(row)
 
 
